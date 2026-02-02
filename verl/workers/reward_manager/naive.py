@@ -18,6 +18,12 @@ import torch
 
 from verl import DataProto
 from verl.utils.reward_score import default_compute_score
+try:
+    from verl.utils.reward_score.math_verify import compute_score as compute_score_math_verify
+    _HAS_MATH_VERIFY = True
+except Exception:
+    compute_score_math_verify = None
+    _HAS_MATH_VERIFY = False
 
 # Copyright 2024 Bytedance Ltd. and/or its affiliates
 #
@@ -163,7 +169,22 @@ def compute_score_em(solution_str, ground_truth, method='strict', format_score=0
     if answer is None:
         return 0,0, search_num, 0
     answer_length = len(answer.split())
-    em, f1 = em_check(answer, ground_truth['target'])
+    if isinstance(ground_truth, dict):
+        if "target" in ground_truth:
+            gt_value = ground_truth["target"]
+        elif "ground_truth" in ground_truth:
+            gt_value = ground_truth["ground_truth"]
+        else:
+            gt_value = ground_truth
+    else:
+        gt_value = ground_truth
+
+    if isinstance(gt_value, str) and _HAS_MATH_VERIFY:
+        em = float(compute_score_math_verify(answer, gt_value))
+        f1 = em
+    else:
+        raise ValueError
+        em, f1 = em_check(answer, gt_value)
     
     if do_print:
         print(f"--------------------------------")
